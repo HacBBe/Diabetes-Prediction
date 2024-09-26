@@ -1,0 +1,50 @@
+from flask import Flask, request, jsonify
+import pickle
+from flask_ngrok import run_with_ngrok
+
+app = Flask(__name__)
+run_with_ngrok(app)  # Kích hoạt ngrok
+
+# Tải mô hình và scaler
+with open('model.pkl', 'rb') as model_file:
+    model = pickle.load(model_file)
+with open('scaler.pkl', 'rb') as scaler_file:
+    scaler = pickle.load(scaler_file)
+
+# Hàm dự đoán
+def predict_diabetes(input_data):
+    input_data = scaler.transform([input_data])
+    prediction = model.predict(input_data)
+    probability = model.predict_proba(input_data)
+    return prediction[0], probability[0][1]
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        data = request.json
+        input_data = [
+            data['pregnancies'],
+            data['glucose'],
+            data['blood_pressure'],
+            data['skin_thickness'],
+            data['insulin'],
+            data['bmi'],
+            data['diabetes_pedigree_function'],
+            data['age']
+        ]
+
+        result, probability = predict_diabetes(input_data)
+
+        result_message = "Bị tiểu đường" if result == 1 else "Không bị tiểu đường"
+        return jsonify({
+            'result': result_message,
+            'probability': probability
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+if __name__ == '__main__':
+    # Chạy Flask mà không sử dụng các tham số host và port
+    app.run()
+
+
